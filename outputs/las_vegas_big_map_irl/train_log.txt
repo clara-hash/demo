@@ -1,0 +1,36 @@
+Grid shape: (240, 187)
+Valid learning states: 5970
+Expert demos: 12
+epoch=000, loss=0.795813, theta=[ 0.006 -0.077  0.068 -0.009 -0.009]
+epoch=005, loss=0.235516, theta=[ 0.026 -0.077  0.048  0.028  0.013]
+epoch=010, loss=0.225214, theta=[ 0.026 -0.077  0.048  0.062  0.034]
+epoch=015, loss=0.217169, theta=[ 0.026 -0.077  0.048  0.093  0.055]
+epoch=020, loss=0.210105, theta=[ 0.026 -0.077  0.047  0.122  0.075]
+epoch=025, loss=0.203914, theta=[ 0.026 -0.077  0.047  0.15   0.095]
+epoch=030, loss=0.198504, theta=[ 0.026 -0.077  0.047  0.176  0.115]
+epoch=035, loss=0.193782, theta=[ 0.027 -0.077  0.047  0.201  0.134]
+epoch=040, loss=0.189638, theta=[ 0.027 -0.077  0.047  0.225  0.154]
+epoch=045, loss=0.185951, theta=[ 0.027 -0.077  0.047  0.249  0.172]
+epoch=050, loss=0.182608, theta=[ 0.027 -0.077  0.047  0.271  0.191]
+epoch=055, loss=0.179520, theta=[ 0.027 -0.077  0.047  0.293  0.209]
+epoch=059, loss=0.177190, theta=[ 0.027 -0.077  0.047  0.311  0.223]
+
+Learned theta:
+lane                : 0.026771
+lane_connector      : -0.076670
+intersection        : 0.046999
+demo_density        : 0.310521
+goal_progress       : 0.223488
+
+Evaluation:
+mean_distance_to_expert     : 2.0468574749064974
+FDE                         : 0.0
+generated_length            : 62
+expert_length               : 50
+success                     : 1
+
+Saved:
+outputs/las_vegas_big_map_irl/big_map_multi_demo_irl_path.png
+outputs/las_vegas_big_map_irl/big_map_multi_demo_irl_loss.png
+outputs/las_vegas_big_map_irl/evaluation_metrics.csv
+outputs/las_vegas_big_map_irl/learned_theta.txt

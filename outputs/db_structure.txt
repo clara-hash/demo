@@ -1,0 +1,137 @@
+DB file: /home/nvidia/nuplan_irl_project/data/data/cache/mini/2021.07.16.20.45.29_veh-35_00600_01084.db
+Size: 393.27 MB
+
+Tables:
+  camera                              rows=8
+  category                            rows=7
+  ego_pose                            rows=48569
+  image                               rows=38720
+  lidar                               rows=1
+  lidar_box                           rows=1590709
+  lidar_pc                            rows=9680
+  log                                 rows=1
+  scenario_tag                        rows=31452
+  scene                               rows=25
+  track                               rows=5969
+  traffic_light_status                rows=129372
+
+Columns:
+
+[camera]
+  token                          BLOB
+  log_token                      BLOB
+  channel                        VARCHAR(64)
+  model                          VARCHAR(64)
+  translation                    BLOB
+  rotation                       BLOB
+  intrinsic                      BLOB
+  distortion                     BLOB
+  width                          INTEGER
+  height                         INTEGER
+
+[category]
+  token                          BLOB
+  name                           VARCHAR(64)
+  description                    TEXT
+
+[ego_pose]
+  token                          BLOB
+  timestamp                      INTEGER
+  x                              FLOAT
+  y                              FLOAT
+  z                              FLOAT
+  qw                             FLOAT
+  qx                             FLOAT
+  qy                             FLOAT
+  qz                             FLOAT
+  vx                             FLOAT
+  vy                             FLOAT
+  vz                             FLOAT
+  acceleration_x                 FLOAT
+  acceleration_y                 FLOAT
+  acceleration_z                 FLOAT
+  angular_rate_x                 FLOAT
+  angular_rate_y                 FLOAT
+  angular_rate_z                 FLOAT
+  epsg                           INTEGER
+  log_token                      BLOB
+
+[image]
+  token                          BLOB
+  next_token                     BLOB
+  prev_token                     BLOB
+  ego_pose_token                 BLOB
+  camera_token                   BLOB
+  filename_jpg                   VARCHAR(128)
+  timestamp                      INTEGER
+
+[lidar]
+  token                          BLOB
+  log_token                      BLOB
+  channel                        VARCHAR(64)
+  model                          VARCHAR(64)
+  translation                    BLOB
+  rotation                       BLOB
+
+[lidar_box]
+  token                          BLOB
+  lidar_pc_token                 BLOB
+  track_token                    BLOB
+  next_token                     BLOB
+  prev_token                     BLOB
+  x                              FLOAT
+  y                              FLOAT
+  z                              FLOAT
+  width                          FLOAT
+  length                         FLOAT
+  height                         FLOAT
+  vx                             FLOAT
+  vy                             FLOAT
+  vz                             FLOAT
+  yaw                            FLOAT
+  confidence                     FLOAT
+
+[lidar_pc]
+  token                          BLOB
+  next_token                     BLOB
+  prev_token                     BLOB
+  ego_pose_token                 BLOB
+  lidar_token                    BLOB
+  scene_token                    BLOB
+  filename                       VARCHAR(128)
+  timestamp                      INTEGER
+
+[log]
+  token                          BLOB
+  vehicle_name                   VARCHAR(64)
+  date                           VARCHAR(64)
+  timestamp                      INTEGER
+  logfile                        VARCHAR(64)
+  location                       VARCHAR(64)
+  map_version                    VARCHAR(64)
+
+[scenario_tag]
+  token                          BLOB
+  lidar_pc_token                 BLOB
+  type                           TEXT
+  agent_track_token              BLOB
+
+[scene]
+  token                          BLOB
+  log_token                      BLOB
+  name                           TEXT
+  goal_ego_pose_token            BLOB
+  roadblock_ids                  TEXT
+
+[track]
+  token                          BLOB
+  category_token                 BLOB
+  width                          FLOAT
+  length                         FLOAT
+  height                         FLOAT
+
+[traffic_light_status]
+  token                          BLOB
+  lidar_pc_token                 BLOB
+  lane_connector_id              INTEGER
+  status                         VARCHAR(8)

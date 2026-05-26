@@ -1,0 +1,5 @@
+lane: 0.026771
+lane_connector: -0.076670
+intersection: 0.046999
+demo_density: 0.310521
+goal_progress: 0.223488

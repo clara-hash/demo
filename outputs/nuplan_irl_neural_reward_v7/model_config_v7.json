@@ -1,0 +1,34 @@
+{
+  "version": "v7_neural_reward",
+  "total_cases": 3000,
+  "split": {
+    "train": 2100,
+    "val": 450,
+    "test": 450
+  },
+  "candidates": 10,
+  "hidden_dim": 256,
+  "best_val_loss": 0.8068791272905138,
+  "test_loss": 0.8676545447773404,
+  "test_acc": 0.7577777777777778,
+  "feature_names": [
+    "length_ratio",
+    "length_efficiency",
+    "valid_ratio",
+    "lane_ratio",
+    "lane_connector_ratio",
+    "intersection_ratio",
+    "static_clearance_mean",
+    "static_clearance_min",
+    "obstacle_clearance_mean",
+    "obstacle_clearance_min",
+    "near_static_penalty",
+    "near_obstacle_penalty",
+    "heading_to_goal",
+    "turn_mean",
+    "turn_max",
+    "goal_reached",
+    "combined_clearance_min",
+    "num_points_norm"
+  ]
+}

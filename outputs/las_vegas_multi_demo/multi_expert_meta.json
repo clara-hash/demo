@@ -1,0 +1,86 @@
+[
+  {
+    "demo_id": 0,
+    "db_path": "data/data/cache/mini/2021.05.12.23.36.44_veh-35_01133_01535.db",
+    "start": 5400,
+    "end": 6300,
+    "score": 992.6713651721894
+  },
+  {
+    "demo_id": 1,
+    "db_path": "data/data/cache/mini/2021.07.16.20.45.29_veh-35_00600_01084.db",
+    "start": 900,
+    "end": 1800,
+    "score": 852.9700477723148
+  },
+  {
+    "demo_id": 2,
+    "db_path": "data/data/cache/mini/2021.06.28.15.02.02_veh-38_02398_02848.db",
+    "start": 6600,
+    "end": 7500,
+    "score": 838.614229445899
+  },
+  {
+    "demo_id": 3,
+    "db_path": "data/data/cache/mini/2021.05.12.22.00.38_veh-35_01008_01518.db",
+    "start": 6000,
+    "end": 6900,
+    "score": 776.1660155430105
+  },
+  {
+    "demo_id": 4,
+    "db_path": "data/data/cache/mini/2021.06.28.16.29.11_veh-38_03263_03766.db",
+    "start": 9000,
+    "end": 9900,
+    "score": 711.3349306734592
+  },
+  {
+    "demo_id": 5,
+    "db_path": "data/data/cache/mini/2021.06.28.16.29.11_veh-38_03263_03766.db",
+    "start": 7800,
+    "end": 8700,
+    "score": 677.3779764524648
+  },
+  {
+    "demo_id": 6,
+    "db_path": "data/data/cache/mini/2021.06.23.16.54.19_veh-35_00808_01256.db",
+    "start": 300,
+    "end": 1200,
+    "score": 657.8416295558956
+  },
+  {
+    "demo_id": 7,
+    "db_path": "data/data/cache/mini/2021.07.16.18.06.21_veh-38_04471_04922.db",
+    "start": 5100,
+    "end": 6000,
+    "score": 622.077831187501
+  },
+  {
+    "demo_id": 8,
+    "db_path": "data/data/cache/mini/2021.07.16.20.45.29_veh-35_00600_01084.db",
+    "start": 300,
+    "end": 1200,
+    "score": 615.5114153119507
+  },
+  {
+    "demo_id": 9,
+    "db_path": "data/data/cache/mini/2021.06.28.16.29.11_veh-38_03263_03766.db",
+    "start": 7500,
+    "end": 8400,
+    "score": 604.8720714937184
+  },
+  {
+    "demo_id": 10,
+    "db_path": "data/data/cache/mini/2021.07.16.18.06.21_veh-38_04471_04922.db",
+    "start": 5700,
+    "end": 6600,
+    "score": 602.964689708431
+  },
+  {
+    "demo_id": 11,
+    "db_path": "data/data/cache/mini/2021.05.12.23.36.44_veh-35_01133_01535.db",
+    "start": 5700,
+    "end": 6600,
+    "score": 602.0609658983855
+  }
+]
