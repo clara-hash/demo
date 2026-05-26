@@ -26,66 +26,53 @@ nuplan_irl_project/
 │   ├── inspect_nuplan_db.py               #   数据库结构查看
 │   ├── inspect_gpkg_layers.py             #   GPKG图层查看
 │   ├── list_db_locations.py               #   按城市统计DB分布
-│   ├── generate_experiment_report.py      #   V1报告生成脚本 (V3-V6)
-│   ├── generate_v2_report.py              #   V2报告图表生成 (V3-V7)
-│   ├── generate_v2_word_report.py         #   V2 Word报告生成
-│   └── archive/                           #   历史版本 (V1-V6, 已废弃)
-│       ├── train_irl_goal_path_planning_v3.py   # V3
-│       ├── train_irl_goal_path_planning_v4.py   # V4
-│       ├── train_irl_autonomous_model_v5.py     # V5
-│       ├── train_irl_autonomous_model_v6_heavy.py# V6 Heavy
-│       ├── irl_neural_reward_v7_common.py       # V7 公共函数(原始)
-│       ├── train_irl_neural_reward_v7.py        # V7 训练(原始)
-│       └── test_irl_*.py                        # 各版本测试脚本
+│   ├── generate_experiment_report.py      #   报告生成脚本
+│   ├── generate_v2_report.py              #   报告图表生成
+│   └── generate_v2_word_report.py         #   Word报告生成
 │
 ├── outputs/                               # 实验输出
-│   ├── IRL_实验报告_V3-V7_v2.docx          # ★ Word 正式报告 (最新)
 │   ├── experiment_report_v2.md            # ★ Markdown 报告 (最新)
-│   ├── IRL_实验报告_V3-V6.docx             #   Word 报告 (V1旧版)
-│   ├── experiment_report.md               #   Markdown 报告 (V1旧版)
+│   ├── IRL_实验报告_V3-V7_v2.docx          # ★ Word 正式报告 (最新)
 │   │
 │   ├── nuplan_irl_neural_reward_v7/       # ★ V7 最终输出
-│   │   ├── neural_reward_v7_best.pt       #   训练好的模型权重 (410KB)
+│   │   ├── neural_reward_v7_best.pt       #   训练好的模型权重
 │   │   ├── neural_reward_v7_last.pt       #   最后一个epoch模型
-│   │   ├── dataset_v7.npz                 #   训练数据集 (800 cases)
+│   │   ├── dataset_v7.npz                 #   训练数据集
 │   │   ├── feature_stats_v7.npz           #   特征标准化参数
 │   │   ├── model_config_v7.json           #   模型配置
 │   │   ├── training_loss_v7.csv           #   训练loss记录
 │   │   ├── neural_reward_training_v7.png  #   训练曲线图
 │   │   ├── planning_summary_v7.png        #   测试综合结果图
-│   │   └── test_figures/                  #   12张测试case路径图
+│   │   └── test_figures/                  #   测试case路径图
 │   │
 │   ├── las_vegas_big_map/                 #   大地图构建输出
 │   │   ├── las_vegas_big_map.npz          #   栅格地图 (240×187)
-│   │   └── multi_expert_trajectories_grid.csv  # 专家轨迹栅格坐标
+│   │   └── multi_expert_trajectories_grid.csv
 │   │
 │   ├── las_vegas_big_map_irl/             #   多示范IRL训练结果
 │   ├── las_vegas_multi_demo/              #   多专家轨迹提取结果
 │   ├── nuplan_real/                       #   真实ego轨迹数据
-│   │   ├── ego_trajectory.csv             #   ego位姿轨迹
-│   │   └── ego_trajectory.png             #   轨迹可视化
 │   │
-│   ├── report_*.png                       #   报告图表集
-│   │   ├── report_all_versions_loss.png   #   V3/V4/V6/V7 Loss对比
-│   │   ├── report_v7_training.png         #   V7 训练曲线
-│   │   ├── report_v7_planning_summary.png #   V7 测试详细对比
-│   │   ├── report_v7_before_after.png     #   V7 障碍物间隙修复前后
-│   │   ├── report_v7_differentiation.png  #   V6/V7 路径区分度
-│   │   ├── report_loss_comparison.png     #   V3/V4/V6 Loss对比 (旧)
-│   │   ├── report_ade_comparison.png      #   V3/V4 ADE对比
-│   │   └── report_v6_weights.png          #   V6 奖励权重图
+│   ├── report_all_versions_loss.png       #   V3/V4/V6/V7 Loss对比
+│   ├── report_v7_training.png             #   V7 训练曲线
+│   ├── report_v7_planning_summary.png     #   V7 测试详细对比
+│   ├── report_v7_before_after.png         #   V7 障碍物间隙修复前后
+│   ├── report_v7_differentiation.png      #   V6/V7 路径区分度
+│   ├── report_v7_scale_comparison.png     #   奖励尺度对比
+│   ├── report_loss_comparison.png         #   V3/V4/V6 Loss对比
+│   ├── report_ade_comparison.png          #   V3/V4 ADE对比
+│   ├── report_v6_weights.png              #   V6 奖励权重图
 │   │
 │   ├── db_structure.txt                   #   数据库表结构
 │   ├── db_locations.csv                   #   各城市DB统计
-│   ├── gpkg_layers.txt                    #   GPKG图层列表
-│   └── archive/                           #   历史版本输出 (V1-V6)
+│   └── gpkg_layers.txt                    #   GPKG图层列表
 │
 └── .claude/                               # Claude 配置
 ```
 
 ## 实验版本演进
 
-| 版本 | 脚本 | 核心特点 | 结果 |
+| 版本 | 脚本 (历史, 已移除) | 核心特点 | 结果 |
 |------|------|----------|------|
 | V3 | `train_irl_goal_path_planning_v3.py` | Goal-conditioned IRL, 9特征, 43样本 | ADE=2.600 |
 | V4 | `train_irl_goal_path_planning_v4.py` | +Static Clearance | ADE=1.919 (↓26%) |

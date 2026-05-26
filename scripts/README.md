@@ -15,10 +15,15 @@
 3. 地图构建
    build_las_vegas_big_map.py   → 从 GPKG 构建大范围栅格地图
 
-4. MaxEnt IRL 训练与路径生成
+4. MaxEnt IRL 训练
    quick_nuplan_irl.py                → 简化版（合成数据，验证算法流程）
    real_nuplan_irl_from_csv.py        → 单条真实轨迹 IRL
-   train_multi_demo_big_map_irl.py    → 多示范大地图 IRL（最终版）
+   train_multi_demo_big_map_irl.py    → 多示范大地图 IRL
+   train_irl_neural_reward_v7.py      → ★ V7 神经网络奖励 IRL（当前主线）
+
+5. 报告生成
+   generate_v2_report.py              → 报告图表生成
+   generate_v2_word_report.py         → Word 正式报告
 ```
 
 ## 脚本职责
@@ -32,9 +37,8 @@
 | `extract_las_vegas_multi_demos.py` | 所有 `las_vegas` DB | `outputs/las_vegas_multi_demo/` | 多条专家轨迹筛选和保存 |
 | `build_las_vegas_big_map.py` | `map.gpkg` + 轨迹 CSV | `outputs/las_vegas_big_map/` | 构建大范围语义栅格地图 |
 | `quick_nuplan_irl.py` | 无（合成数据） | `outputs/quick_irl_*` | 简化版 MaxEnt IRL 演示 |
-| `real_nuplan_irl_from_csv.py` | `ego_trajectory.csv` | `outputs/nuplan_real/real_irl_*` | 单条真实轨迹 IRL 训练 |
-| `train_multi_demo_big_map_irl.py` | 大地图 + 多轨迹 | `outputs/las_vegas_big_map_irl/` | 多示范大地图 IRL（完整实验） |
-
-## archive/
-
-已废弃的历史版本脚本（v2~v7 迭代过程），仅供参考。
+| `real_nuplan_irl_from_csv.py` | `ego_trajectory.csv` | `outputs/nuplan_real/` | 单条真实轨迹 IRL 训练 |
+| `train_multi_demo_big_map_irl.py` | 大地图 + 多轨迹 | `outputs/las_vegas_big_map_irl/` | 多示范大地图 IRL |
+| `train_irl_neural_reward_v7.py` | `.db` (Las Vegas) | `outputs/nuplan_irl_neural_reward_v7/` | ★ V7 神经网络奖励 IRL |
+| `generate_v2_report.py` | 各版本输出 | `outputs/report_*.png` | 报告图表生成 |
+| `generate_v2_word_report.py` | 图表 + 数据 | `outputs/IRL_实验报告_V3-V7_v2.docx` | Word 正式报告 |
