@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-V7: Neural Reward IRL — practical Jetson version.
+V7: 神经网络奖励IRL — Jetson版。
 
-Single self-contained script: dataset generation → MLP training → testing → figures.
-Scaled for Jetson ARM (no GPU, single process).
+全流程脚本：生成数据集 → 训练 MLP → 测试 → 出图。
+针对Jetson ARM做的（没GPU，纯CPU单进程）。
 
-Key differences from V6 Heavy:
-  - Neural network reward model instead of linear theta
-  - Choice-based cross-entropy loss instead of max-entropy feature matching
-  - Teacher utility function generates pseudo-labels for candidate paths
-  - No expert_density dependency
+和V6 Heavy的主要区别：
+  - 用神经网络代替线性奖励函数 θ
+  - 用交叉熵（choice-based）损失代替最大熵特征匹配
+  - Teacher utility function给候选路径打分当伪标签
+  - 不再依赖expert_density
 """
 
 import os, sys, math, heapq, time, json, argparse
@@ -28,7 +28,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# ── Config ─────────────────────────────────────────────────────
+# ── 配置 ───────────────────────────────────────────────────────
 MAP_FILE = "outputs/las_vegas_big_map/las_vegas_big_map.npz"
 OUT_DIR = "outputs/nuplan_irl_neural_reward_v7"
 
@@ -44,7 +44,7 @@ FEATURE_NAMES = [
 
 Point = Tuple[int, int]
 
-# ── Map loading ─────────────────────────────────────────────────
+# ── 地图加载 ───────────────────────────────────────────────────
 def load_grid_npz(path: str) -> np.ndarray:
     data = np.load(path, allow_pickle=True)
     for key in ["grid", "map", "semantic_map", "arr_0"]:
@@ -89,7 +89,7 @@ def inside(ctx, p):
 def euclidean(a, b):
     return float(math.hypot(float(a[0]-b[0]), float(a[1]-b[1])))
 
-# ── Obstacle generation ────────────────────────────────────────
+# ── 障碍物生成 ────────────────────────────────────────────────
 def clear_patch(mask, center, radius):
     h, w = mask.shape
     cy, cx = int(center[0]), int(center[1])
@@ -98,6 +98,7 @@ def clear_patch(mask, center, radius):
     mask[y0:y1, x0:x1] = False
 
 def generate_obstacles(ctx, start, goal, rng, min_n, max_n):
+    """随机生成障碍物，大部分分布在起点到终点的路径两侧"""
     h, w = ctx["height"], ctx["width"]
     valid = ctx["valid"]
     valid_coords = ctx["valid_coords"]
@@ -106,16 +107,18 @@ def generate_obstacles(ctx, start, goal, rng, min_n, max_n):
     sy, sx = start; gy, gx = goal
     dx, dy = float(gx-sx), float(gy-sy)
     norm = math.hypot(dx, dy) + 1e-6
-    nx, ny = -dy/norm, dx/norm
+    nx, ny = -dy/norm, dx/norm  # 路径法向量，用来在两侧撒障碍
     yy, xx = np.ogrid[:h, :w]
 
     for _ in range(n_obs):
         if rng.random() < 0.75:
+            # 75% 概率沿着起点-终点连线两侧分布
             t = float(rng.uniform(0.08, 0.92))
             off = float(rng.normal(0.0, rng.uniform(3.0, 14.0)))
             cy = int(np.clip(round(sy + t*dy + off*ny), 0, h-1))
             cx = int(np.clip(round(sx + t*dx + off*nx), 0, w-1))
         else:
+            # 25% 随机撒在可行驶区域
             cy, cx = valid_coords[int(rng.integers(0, len(valid_coords)))]
         if not valid[cy, cx]:
             continue
@@ -128,7 +131,7 @@ def generate_obstacles(ctx, start, goal, rng, min_n, max_n):
     clear_patch(mask, goal, 5)
     return mask & valid
 
-# ── A* path finding ────────────────────────────────────────────
+# ── A* 路径搜索 ────────────────────────────────────────────────
 def compute_obstacle_dist(obstacle_mask):
     if obstacle_mask is None or not obstacle_mask.any():
         return np.full(obstacle_mask.shape, 999.0, dtype=np.float32)
@@ -139,6 +142,7 @@ def astar_path(ctx, start, goal, obstacle_mask,
                lane_weight=0.0, intersection_weight=0.0,
                min_static_clearance=0.0, min_obstacle_clearance=0.0,
                max_expansions=60000):
+    """A* 路径规划，代价函数可以调权重来生成不同风格的路径"""
     if not inside(ctx, start) or not inside(ctx, goal):
         return None
     valid = ctx["valid"]
@@ -160,7 +164,7 @@ def astar_path(ctx, start, goal, obstacle_mask,
     cost = np.ones((h, w), dtype=np.float32)
     cost += float(static_weight) * np.exp(-np.clip(static_dist, 0, 20)/2.5)
     if obstacle_dist is not None:
-        # Wider decay (3.0 instead of 2.0): obstacle penalty extends further
+        # 障碍物惩罚衰减半径 3.0（比静态的 2.0 更大），让障碍物影响范围更远
         cost += float(obstacle_weight) * np.exp(-np.clip(obstacle_dist, 0, 20)/3.0)
     if lane_weight != 0:
         cost += float(lane_weight) * (~(ctx["lane"]|ctx["lane_connector"])).astype(np.float32)
@@ -202,7 +206,7 @@ def astar_path(ctx, start, goal, obstacle_mask,
                 heapq.heappush(open_h, (ng + hfun(npnt), ng, npnt))
     return None
 
-# ── Candidate path generation ──────────────────────────────────
+# ── 候选路径生成 ──────────────────────────────────────────────
 def nearest_free_point(ctx, p, obstacle_mask, radius=10):
     py, px = int(round(p[0])), int(round(p[1]))
     valid = ctx["valid"]
@@ -233,22 +237,23 @@ def path_length(path):
     return sum(math.hypot(float(a[0]-b[0]), float(a[1]-b[1])) for a,b in zip(path[:-1], path[1:]))
 
 def generate_candidates(ctx, start, goal, obstacle_mask, count, rng, use_waypoints=False):
+    """用不同的 A* 代价参数生成多条候选路径，风格从激进到保守"""
     modes = [
-        # Shortest-like (no obstacle avoidance) — baseline
+        # 最短路径（不躲避障碍物）— baseline
         {"static_weight":0.0, "obstacle_weight":0.0, "lane_weight":0.0, "intersection_weight":0.0, "min_static_clearance":0.0, "min_obstacle_clearance":0.0},
-        # Obstacle-averse (soft cost only)
+        # 略微躲避障碍物（只有软代价）
         {"static_weight":0.0, "obstacle_weight":8.0, "lane_weight":0.0, "intersection_weight":0.0, "min_static_clearance":0.0, "min_obstacle_clearance":0.0},
-        # Moderate obstacle clearance (hard min=2)
+        # 中等障碍物避让（硬约束 min=2）
         {"static_weight":1.0, "obstacle_weight":10.0, "lane_weight":0.0, "intersection_weight":0.0, "min_static_clearance":1.0, "min_obstacle_clearance":2.0},
-        # Strong obstacle clearance (hard min=3)
+        # 较强障碍物避让（硬约束 min=3）
         {"static_weight":2.0, "obstacle_weight":12.0, "lane_weight":0.0, "intersection_weight":0.0, "min_static_clearance":1.0, "min_obstacle_clearance":3.0},
-        # Very strong obstacle clearance (hard min=4)
+        # 超强障碍物避让（硬约束 min=4）
         {"static_weight":2.5, "obstacle_weight":15.0, "lane_weight":0.0, "intersection_weight":0.0, "min_static_clearance":2.0, "min_obstacle_clearance":4.0},
-        # Balanced with lane preference
+        # 平衡 + 偏好车道
         {"static_weight":0.7, "obstacle_weight":8.0, "lane_weight":0.6, "intersection_weight":0.0, "min_static_clearance":0.0, "min_obstacle_clearance":2.0},
-        # Safe with intersection avoidance
+        # 安全 + 避免交叉口
         {"static_weight":0.7, "obstacle_weight":10.0, "lane_weight":0.2, "intersection_weight":0.7, "min_static_clearance":1.0, "min_obstacle_clearance":2.0},
-        # Balanced safe
+        # 均衡安全
         {"static_weight":1.2, "obstacle_weight":10.0, "lane_weight":0.4, "intersection_weight":0.2, "min_static_clearance":1.0, "min_obstacle_clearance":2.0},
     ]
     paths = []
@@ -256,7 +261,7 @@ def generate_candidates(ctx, start, goal, obstacle_mask, count, rng, use_waypoin
         p = astar_path(ctx, start, goal, obstacle_mask, **m)
         if p: paths.append(p)
 
-    # Waypoint-based variants (disabled by default for speed)
+    # 基于途经点的路径变体（默认关掉，太慢了）
     if use_waypoints:
         sy, sx = start; gy, gx = goal
         dx, dy = float(gx-sx), float(gy-sy)
@@ -280,10 +285,11 @@ def generate_candidates(ctx, start, goal, obstacle_mask, count, rng, use_waypoin
     paths.sort(key=lambda p: path_length(p))
     return paths[:count]
 
-# ── Feature extraction ─────────────────────────────────────────
+# ── 特征提取 ─────────────────────────────────────────────────
 def angle_wrap(a): return (a+np.pi)%(2.0*np.pi)-np.pi
 
 def path_feature_vector(ctx, path, obstacle_mask, start, goal):
+    """把一条路径转换成一个 18 维特征向量"""
     if path is None or len(path)<2:
         return np.zeros(len(FEATURE_NAMES), dtype=np.float32)
     obstacle_dist = compute_obstacle_dist(obstacle_mask)
@@ -303,7 +309,7 @@ def path_feature_vector(ctx, path, obstacle_mask, start, goal):
     obs_mean = float(np.mean(np.clip(obs_v,0,12))/12.0)
     obs_min = float(np.min(np.clip(obs_v,0,12))/12.0)
     near_static = float(np.mean(np.exp(-np.clip(static_v,0,20)/2.0)))
-    near_obstacle = float(np.mean(np.exp(-np.clip(obs_v,0,20)/3.0)))  # wider penalty radius
+    near_obstacle = float(np.mean(np.exp(-np.clip(obs_v,0,20)/3.0)))  # 用更大的衰减半径（3.0），让远处障碍物也有影响
     dy = np.diff(arr[:,0]).astype(np.float32); dx = np.diff(arr[:,1]).astype(np.float32)
     sn = np.sqrt(dx*dx+dy*dy)+1e-6
     gx, gy = float(goal[1]-start[1]), float(goal[0]-start[0])
@@ -325,23 +331,25 @@ def path_feature_vector(ctx, path, obstacle_mask, start, goal):
         near_static, near_obstacle, h2g, t_mean, t_max,
         goal_r, ccm, npn], dtype=np.float32)
 
-# ── Teacher utility ────────────────────────────────────────────
+# ── Teacher 效用函数 ──────────────────────────────────────────
 def teacher_utility(feat):
+    """手工设计的打分函数，用来给候选路径排优劣当伪标签"""
     f = {n: float(feat[i]) for i,n in enumerate(FEATURE_NAMES)}
     u = 0.0
     u += 10.0*f["goal_reached"] + 4.0*f["length_efficiency"]
     u -= 2.3*max(0.0, f["length_ratio"]-1.0)
     u += 1.2*f["lane_ratio"] + 0.4*f["lane_connector_ratio"] + 0.2*f["intersection_ratio"]
     u += 2.2*f["static_clearance_min"] + 1.1*f["static_clearance_mean"]
-    # Strong obstacle avoidance: heavily reward min clearance, penalize proximity
+    # 强奖励障碍物避让：min clearance 权重给很高，同时惩罚靠近障碍物
     u += 12.0*f["obstacle_clearance_min"] + 5.0*f["obstacle_clearance_mean"]
     u += 8.0*f["combined_clearance_min"]
     u -= 4.0*f["near_static_penalty"] - 15.0*f["near_obstacle_penalty"]
     u += 1.6*f["heading_to_goal"] - 2.5*f["turn_mean"] - 1.2*f["turn_max"]
     return float(u)
 
-# ── MLP Model ──────────────────────────────────────────────────
+# ── MLP 模型 ──────────────────────────────────────────────────
 def make_model(fdim, hidden=256, dropout=0.10):
+    """两层隐藏层的 MLP，输出一个标量奖励"""
     return nn.Sequential(
         nn.Linear(fdim, hidden), nn.ReLU(), nn.Dropout(dropout),
         nn.Linear(hidden, hidden), nn.ReLU(), nn.Dropout(dropout),
@@ -349,9 +357,10 @@ def make_model(fdim, hidden=256, dropout=0.10):
         nn.Linear(hidden//2, 1),
     )
 
-# ── Dataset generation ─────────────────────────────────────────
+# ── 数据集生成 ───────────────────────────────────────────────
 def make_training_case(ctx, idx, seed, candidate_count, min_obs, max_obs,
                        min_dist, max_dist, max_tries=40):
+    """造一条训练样本：随机起终点 + 障碍物 + 候选路径 + teacher 打分"""
     rng = np.random.default_rng(seed + idx*9973)
     vc = ctx["valid_coords"]
     for _ in range(max_tries):
@@ -414,7 +423,7 @@ def generate_dataset(ctx, args):
     print(f"Dataset saved: {ds_path}  X={X.shape} labels={labels.shape} mask={mask.shape}")
     return X, labels, mask
 
-# ── Training ───────────────────────────────────────────────────
+# ── 训练 ─────────────────────────────────────────────────────
 def evaluate_model(model, loader, device):
     model.eval(); total_loss=0.0; total_c=0; total_correct=0
     with torch.no_grad():
@@ -438,7 +447,7 @@ def train_model(ctx, args, X, labels, mask):
     test_idx = perm[n_train+n_val:]
     print(f"\nSplit: train={n_train}, val={n_val}, test={n-n_train-n_val}")
 
-    # Standardize
+    # 标准化特征（只在训练集上算 mean/std）
     train_valid = X[train_idx][mask[train_idx]>0.0]
     feat_mean = train_valid.mean(axis=0).astype(np.float32)
     feat_std = np.maximum(train_valid.std(axis=0), 1e-6).astype(np.float32)
@@ -497,20 +506,20 @@ def train_model(ctx, args, X, labels, mask):
         if val_loss < best_val_loss:
             best_val_loss = val_loss; torch.save(ckpt, best_path)
 
-    # Test evaluation
+    # 在测试集上评估最佳模型
     ckpt = torch.load(best_path, map_location=device)
     model.load_state_dict(ckpt["model_state"])
     test_loss, test_acc = evaluate_model(model, test_loader, device)
     print(f"\nTest: loss={test_loss:.6f} acc={test_acc:.4f}")
 
-    # Save stats
+    # 保存标准化参数
     np.savez(os.path.join(args.output_dir, "feature_stats_v7.npz"),
              mean=feat_mean, std=feat_std, feature_names=np.array(FEATURE_NAMES))
     loss_arr = np.array(loss_rows)
     np.savetxt(os.path.join(args.output_dir, "training_loss_v7.csv"), loss_arr,
                delimiter=",", header="epoch,train_loss,train_acc,val_loss,val_acc", comments="")
 
-    # Loss plot
+    # 画训练曲线
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5), dpi=140)
     ax1.plot(loss_arr[:,0], loss_arr[:,1], label="train loss"); ax1.plot(loss_arr[:,0], loss_arr[:,3], label="val loss")
     ax1.set_xlabel("epoch"); ax1.set_ylabel("cross entropy"); ax1.grid(True, alpha=0.3); ax1.legend()
@@ -522,7 +531,7 @@ def train_model(ctx, args, X, labels, mask):
     loss_png = os.path.join(args.output_dir, "neural_reward_training_v7.png")
     fig.savefig(loss_png, dpi=160); plt.close(fig)
 
-    # Save config
+    # 保存配置
     with open(os.path.join(args.output_dir, "model_config_v7.json"), "w") as f:
         json.dump({"version":"v7_neural_reward", "total_cases":int(n),
                    "split":{"train":n_train,"val":n_val,"test":n-n_train-n_val},
@@ -533,7 +542,7 @@ def train_model(ctx, args, X, labels, mask):
     print(f"Saved: {best_path}, {loss_png}")
     return model, feat_mean, feat_std, device, {"test_loss": test_loss, "test_acc": test_acc}
 
-# ── Testing / Planning ─────────────────────────────────────────
+# ── 测试 / 规划效果验证 ──────────────────────────────────────
 def score_paths(model, features, mean, std, device):
     x = ((features - mean.reshape(1,-1))/std.reshape(1,-1)).astype(np.float32)
     xt = torch.from_numpy(x).float().to(device)
@@ -563,10 +572,10 @@ def run_planning_tests(ctx, model, mean, std, device, args):
         best_idx = int(np.argmax(scores))
         irl_path = paths[best_idx]
 
-        # Also get shortest path as baseline
+        # 同时跑一条最短路径当 baseline 对比
         short = astar_path(ctx, s, g, obs, static_weight=0, obstacle_weight=0)
 
-        # Metrics
+        # 算指标
         obs_dist = compute_obstacle_dist(obs)
         ip = np.asarray(irl_path, dtype=np.int32)
         iys = np.clip(ip[:,0],0,ctx["height"]-1); ixs = np.clip(ip[:,1],0,ctx["width"]-1)
@@ -590,7 +599,7 @@ def run_planning_tests(ctx, model, mean, std, device, args):
                      "irl_static_min":irl_static_min, "irl_obst_min":irl_obst_min,
                      "short_static_min":short_static_min, "short_obst_min":short_obst_min})
 
-        # Plot first 12 cases
+        # 前 12 个 case 各画一张路径对比图
         if made < 12:
             title = f"V7 Neural IRL Test #{made} | IRL={irl_len:.0f} Short={short_len:.0f}"
             fig_path = os.path.join(fig_dir, f"test_{made:03d}.png")
@@ -600,14 +609,14 @@ def run_planning_tests(ctx, model, mean, std, device, args):
               f"ratio={irl_len/max(1e-6,short_len):.3f} sta_min={irl_static_min:.1f} obs_min={irl_obst_min:.1f}", flush=True)
         made += 1
 
-    # Summary
+    # 汇总统计
     sr = np.mean([r["success"] for r in rows])
     mil = np.mean([r["irl_len"] for r in rows])
     msl = np.mean([r["short_len"] for r in rows])
     mr = np.mean([r["len_ratio"] for r in rows])
     print(f"\nSummary: success={sr:.3f} irl_len={mil:.1f} short_len={msl:.1f} ratio={mr:.3f}")
 
-    # Summary figure
+    # 画汇总对比图
     fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=140)
     ids = [r["id"] for r in rows]
     axes[0,0].bar(ids, [r["irl_len"] for r in rows], alpha=0.7, label="IRL")
@@ -628,6 +637,7 @@ def run_planning_tests(ctx, model, mean, std, device, args):
     return rows
 
 def _plot_case(ctx, obs, start, goal, irl_path, short_path, out_path, title):
+    """画单个测试 case 的路径对比图"""
     h, w = ctx["height"], ctx["width"]
     img = np.zeros((h,w,3), dtype=np.float32)+0.88
     img[ctx["valid"]] = [0.98,0.90,0.32]
@@ -648,38 +658,38 @@ def _plot_case(ctx, obs, start, goal, irl_path, short_path, out_path, title):
     ax.set_ylim(min(h-1,max(start[0],goal[0])+40), max(0,min(start[0],goal[0])-40))
     fig.tight_layout(); fig.savefig(out_path, dpi=130); plt.close(fig)
 
-# ── Main ───────────────────────────────────────────────────────
+# ── 主函数 ───────────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--map", default=MAP_FILE)
     parser.add_argument("--output-dir", default=OUT_DIR)
-    parser.add_argument("--reuse", action="store_true", help="Reuse existing dataset")
-    # Data
-    parser.add_argument("--total-cases", type=int, default=800)
-    parser.add_argument("--candidates", type=int, default=10)
-    parser.add_argument("--min-obs", type=int, default=4)
-    parser.add_argument("--max-obs", type=int, default=10)
-    parser.add_argument("--min-dist", type=float, default=55)
-    parser.add_argument("--max-dist", type=float, default=210)
-    # Training
-    parser.add_argument("--epochs", type=int, default=80)
-    parser.add_argument("--batch-size", type=int, default=384)
-    parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--wd", type=float, default=1e-4)
-    parser.add_argument("--hidden-dim", type=int, default=256)
-    parser.add_argument("--dropout", type=float, default=0.10)
-    # Testing
-    parser.add_argument("--num-tests", type=int, default=30)
-    # Misc
+    parser.add_argument("--reuse", action="store_true", help="复用已有的数据集")
+    # 数据参数
+    parser.add_argument("--total-cases", type=int, default=800, help="训练样本数")
+    parser.add_argument("--candidates", type=int, default=10, help="每条样本的候选路径数")
+    parser.add_argument("--min-obs", type=int, default=4, help="最少障碍物数量")
+    parser.add_argument("--max-obs", type=int, default=10, help="最多障碍物数量")
+    parser.add_argument("--min-dist", type=float, default=55, help="起终点最小距离")
+    parser.add_argument("--max-dist", type=float, default=210, help="起终点最大距离")
+    # 训练参数
+    parser.add_argument("--epochs", type=int, default=80, help="训练轮数")
+    parser.add_argument("--batch-size", type=int, default=384, help="批次大小")
+    parser.add_argument("--lr", type=float, default=2e-4, help="学习率")
+    parser.add_argument("--wd", type=float, default=1e-4, help="权重衰减")
+    parser.add_argument("--hidden-dim", type=int, default=256, help="隐藏层维度")
+    parser.add_argument("--dropout", type=float, default=0.10, help="dropout 比例")
+    # 测试参数
+    parser.add_argument("--num-tests", type=int, default=30, help="测试 case 数量")
+    # 其他
     parser.add_argument("--seed", type=int, default=20260525)
-    parser.add_argument("--progress-every", type=int, default=100)
-    parser.add_argument("--skip-train", action="store_true")
-    parser.add_argument("--skip-test", action="store_true")
+    parser.add_argument("--progress-every", type=int, default=100, help="每 N 条样本打印进度")
+    parser.add_argument("--skip-train", action="store_true", help="跳过训练，直接加载已有模型")
+    parser.add_argument("--skip-test", action="store_true", help="跳过测试")
     args = parser.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
     print("="*60)
-    print("V7: Neural Reward IRL — Practical Jetson Version")
+    print("V7: Neural Reward IRL — 跑在 Jetson 上的实用版")
     print("="*60)
 
     ctx = build_context(args.map)
@@ -688,10 +698,10 @@ def main():
     for u, c in zip(uniq, cnt):
         print(f"  value {u}: {c}")
 
-    # Dataset
+    # 1. 造数据集
     X, labels, mask = generate_dataset(ctx, args)
 
-    # Train
+    # 2. 训练
     if not args.skip_train:
         model, mean, std, device, train_metrics = train_model(ctx, args, X, labels, mask)
     else:
@@ -706,10 +716,9 @@ def main():
         device = torch.device("cpu")
         print(f"Loaded model from {best_path}")
 
-    # Test
+    # 3. 测试
     if not args.skip_test:
         rows = run_planning_tests(ctx, model, mean, std, device, args)
-        # Print final summary
         sr = np.mean([r["success"] for r in rows])
         print(f"\nFinal: success_rate={sr:.3f} | mean_irl_len={np.mean([r['irl_len'] for r in rows]):.1f} "
               f"mean_short_len={np.mean([r['short_len'] for r in rows]):.1f} "
