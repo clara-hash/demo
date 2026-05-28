@@ -2,7 +2,7 @@
 data/
 *.log
 *.bin
-*.npz
+# *.npz
 *.parquet
 *.zip
 *.tar
